@@ -1,0 +1,7 @@
+services:
+  adversarial-legal:
+    build: .
+    container_name: adversarial-legal
+    ports:
+      - "8899:8899"
+    restart: unless-stopped

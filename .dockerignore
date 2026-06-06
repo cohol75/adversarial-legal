@@ -1,0 +1,11 @@
+__pycache__
+.venv
+.DS_Store
+*.pyc
+README.md
+前端界面截图.png
+.git
+.gitignore
+.dockerignore
+docker-compose.yml
+Dockerfile

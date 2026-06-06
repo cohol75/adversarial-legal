@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对抗式法律辩论系统</title>
+<style>
+  :root {
+    --bg: #f8f9fa;
+    --card-bg: #ffffff;
+    --text: #1a1a2e;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --accent: #4f46e5;
+    --plaintiff: #3B82F6;
+    --plaintiff-bg: #eff6ff;
+    --plaintiff-border: #bfdbfe;
+    --defense: #EF4444;
+    --defense-bg: #fef2f2;
+    --defense-border: #fecaca;
+    --judge: #D97706;
+    --judge-bg: #fffbeb;
+    --judge-border: #fde68a;
+    --summary: #059669;
+    --summary-bg: #ecfdf5;
+    --summary-border: #a7f3d0;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: var(--shadow);
+    z-index: 10;
+  }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header .icon { font-size: 24px; }
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  /* ---- 左侧配置面板 ---- */
+  .sidebar {
+    width: 320px; min-width: 320px;
+    background: var(--card-bg);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .sidebar h3 { font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .config-group {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 12px;
+    border: 1px solid var(--border);
+  }
+  .config-group h4 { font-size: 13px; margin-bottom: 8px; color: var(--accent); }
+  .config-group label { font-size: 12px; color: var(--text-secondary); display: block; margin: 6px 0 2px; }
+  .config-group input {
+    width: 100%; padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px; font-size: 13px; font-family: inherit;
+    transition: border-color .2s;
+  }
+  .config-group input:focus { outline: none; border-color: var(--accent); }
+  .sidebar button {
+    width: 100%; padding: 8px 16px; border: none;
+    border-radius: var(--radius); font-size: 13px;
+    cursor: pointer; font-weight: 600; transition: all .2s;
+  }
+  .btn-save { background: var(--accent); color: #fff; }
+  .btn-save:hover { opacity: .9; }
+  .btn-reset { background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border); }
+  .btn-reset:hover { background: #f1f5f9; }
+  /* ---- 主内容区 ---- */
+  .main {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  }
+  /* 阶段进度条 */
+  .stage-bar {
+    display: flex; gap: 0; padding: 12px 24px;
+    background: var(--card-bg); border-bottom: 1px solid var(--border);
+  }
+  .stage-step {
+    flex: 1; text-align: center; font-size: 12px; color: var(--text-secondary);
+    padding: 6px 4px; position: relative; cursor: default;
+  }
+  .stage-step::after {
+    content: ''; position: absolute; bottom: -12px; left: 50%;
+    transform: translateX(-50%);
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border);
+  }
+  .stage-step.completed { color: var(--summary); }
+  .stage-step.completed::after { background: var(--summary); }
+  .stage-step.active { color: var(--accent); font-weight: 700; }
+  .stage-step.active::after { background: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,.2); }
+  .stage-connector {
+    height: 2px; background: var(--border);
+    position: relative; top: -6px; flex: 0 0 4%;
+  }
+  .stage-connector.done { background: var(--summary); }
+  /* 输入区 */
+  .input-area {
+    padding: 16px 24px; background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .input-area textarea {
+    width: 100%; height: 120px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    font-size: 14px; font-family: inherit; resize: vertical; line-height: 1.6;
+  }
+  .input-area textarea:focus { outline: none; border-color: var(--accent); }
+  .btn-primary {
+    align-self: flex-start; padding: 10px 32px;
+    background: var(--accent); color: #fff; border: none;
+    border-radius: var(--radius); font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-primary:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-stop {
+    align-self: flex-start; padding: 10px 24px; background: #fff;
+    color: #EF4444; border: 2px solid #EF4444; border-radius: var(--radius);
+    font-size: 15px; font-weight: 700; cursor: pointer; margin-left: 8px;
+  }
+  /* 输出区 */
+  .output-area {
+    flex: 1; overflow-y: scroll; padding: 20px 24px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .output-area::-webkit-scrollbar { width: 10px; display: block; }
+  .output-area::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 5px; margin: 4px 0; }
+  .output-area::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 5px; border: 2px solid #f1f5f9; }
+  .output-area::-webkit-scrollbar-thumb:hover { background: #64748b; }
+  .empty-state {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); font-size: 15px; text-align: center; line-height: 2;
+  }
+  /* 追问卡片 */
+  .questions-card {
+    background: var(--card-bg); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+    display: flex; flex-direction: column;
+    max-height: calc(100vh - 220px);
+  }
+  .questions-card.combined {
+    max-height: calc(100vh - 200px);
+  }
+  .questions-card.plaintiff { border: 2px solid var(--plaintiff); }
+  .questions-card.defense { border: 2px solid var(--defense); }
+  .questions-header {
+    padding: 14px 16px; font-weight: 700; font-size: 15px;
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  }
+  .questions-card.plaintiff .questions-header { background: var(--plaintiff-bg); color: var(--plaintiff); }
+  .questions-card.defense .questions-header { background: var(--defense-bg); color: var(--defense); }
+  .questions-body {
+    overflow-y: scroll; flex: 1; padding: 0;
+  }
+  .questions-body::-webkit-scrollbar { width: 10px; display: block; }
+  .questions-body::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 5px; }
+  .questions-body::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 5px; }
+  .questions-body::-webkit-scrollbar-thumb:hover { background: #64748b; }
+  .question-item { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .question-item:last-child { border-bottom: none; }
+  .question-text { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+  .answer-input {
+    width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+    border-radius: 4px; font-size: 13px; font-family: inherit;
+    line-height: 1.6; resize: vertical; min-height: 60px;
+  }
+  .answer-input:focus { outline: none; border-color: var(--accent); }
+  .questions-footer {
+    flex-shrink: 0; padding: 10px 16px; border-top: 1px solid var(--border);
+    background: var(--bg); display: flex; justify-content: flex-end;
+  }
+  .questions-card .btn-submit {
+    padding: 10px 24px;
+    background: var(--accent); color: #fff; border: none;
+    border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .questions-card .btn-submit:hover { opacity: .9; }
+  .questions-card .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+  /* 立场选择 */
+  .side-select-card {
+    background: var(--card-bg); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 24px; text-align: center;
+  }
+  .side-select-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .side-select-desc { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
+  .side-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .side-btn {
+    padding: 14px 28px; border: 2px solid var(--border);
+    border-radius: var(--radius); font-size: 15px; font-weight: 600;
+    cursor: pointer; background: #fff; transition: all .2s;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .side-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .side-btn.plaintiff-btn:hover { border-color: var(--plaintiff); background: var(--plaintiff-bg); }
+  .side-btn.defense-btn:hover { border-color: var(--defense); background: var(--defense-bg); }
+  .side-btn.neutral-btn:hover { border-color: var(--accent); background: #eef2ff; }
+  .side-btn .side-icon { font-size: 24px; }
+  .category-badge {
+    background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px;
+    padding: 10px 16px; margin-bottom: 12px; font-size: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  /* 状态栏 */
+  .status-bar {
+    padding: 8px 24px; font-size: 13px; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .6s linear infinite; display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner.active { display: inline-block; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+  /* ========== Tab 按钮导航系统 ========== */
+  #tabContainer {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .tab-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 14px;
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .tab-row {
+    display: flex;
+    gap: 5px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 11px;
+    cursor: pointer;
+    background: #f8fafc;
+    color: var(--text-secondary);
+    transition: all .15s;
+    white-space: nowrap;
+    font-family: inherit;
+    text-align: center;
+    min-width: 0;
+    line-height: 1.4;
+  }
+  .tab-btn:hover:not(.disabled):not(.active) { background: #e2e8f0; color: var(--text); }
+  .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  .tab-btn.plaintiff { border-left: 3px solid var(--plaintiff); }
+  .tab-btn.defense { border-left: 3px solid var(--defense); }
+  .tab-btn.judge { border-left: 3px solid var(--judge); }
+  .tab-btn.summary-btn { border-left: 3px solid var(--summary); }
+  .tab-btn.disabled { opacity: 0.4; cursor: not-allowed; background: #f1f5f9; }
+  .tab-btn.streaming { background: #fef3c7; border-color: #f59e0b; color: #92400e; animation: pulse 1.5s ease-in-out infinite; }
+  .tab-btn.done { color: var(--text); }
+
+  /* Tab 内容展示区 */
+  .tab-content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .tab-content-area::-webkit-scrollbar { width: 10px; display: block; }
+  .tab-content-area::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 5px; margin: 4px 0; }
+  .tab-content-area::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 5px; border: 2px solid #f1f5f9; }
+  .tab-content-area::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+  .tab-panel {
+    display: none;
+    font-size: 14px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+  }
+  .tab-panel.active { display: block; }
+  .tab-panel.plaintiff-panel { border-left: 3px solid var(--plaintiff); }
+  .tab-panel.defense-panel { border-left: 3px solid var(--defense); }
+  .tab-panel.judge-panel { border-left: 3px solid var(--judge); }
+  .tab-panel.summary-panel { border-left: 3px solid var(--summary); background: linear-gradient(135deg, #ecfdf5, #d1fae5); }
+
+  .panel-header {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-header.ph-plaintiff { color: var(--plaintiff); }
+  .panel-header.ph-defense { color: var(--defense); }
+  .panel-header.ph-judge { color: var(--judge); }
+  .panel-header.ph-summary { color: var(--summary); }
+
+  .panel-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .panel-placeholder {
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+  .streaming-cursor::after { content: "▎"; animation: blink 1s steps(2) infinite; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="icon">⚖️</span>
+  <h1>对抗式法律辩论系统</h1>
+  <span style="flex:1"></span>
+  <span style="font-size:12px;color:var(--text-secondary)">Adversarial Legal Debate</span>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h3>模型配置</h3>
+    <div class="config-group">
+      <h4>🔵 模型1 — 正方（原告）</h4>
+      <label>Base URL</label>
+      <input id="m1-url" placeholder="https://api.openai.com/v1">
+      <label>API Key</label>
+      <input id="m1-key" type="password" placeholder="sk-...">
+      <label>Model Name</label>
+      <input id="m1-name" placeholder="gpt-4o">
+    </div>
+    <div class="config-group">
+      <h4>🔴 模型2 — 反方（被告）</h4>
+      <label>Base URL</label>
+      <input id="m2-url" placeholder="https://api.openai.com/v1">
+      <label>API Key</label>
+      <input id="m2-key" type="password" placeholder="sk-...">
+      <label>Model Name</label>
+      <input id="m2-name" placeholder="gpt-4o">
+    </div>
+    <button class="btn-save" onclick="saveConfig()">💾 保存配置</button>
+    <button class="btn-reset" onclick="resetConfig()">🔄 恢复默认</button>
+    <div style="margin-top:8px;font-size:11px;color:var(--text-secondary);line-height:1.6;">
+      <strong>提示：</strong>支持千问、DeepSeek、OpenAI 等兼容接口。
+      API Key 保存在浏览器本地。<br><br>
+      <a href="#" onclick="resetApp()" style="color:var(--defense);">↻ 重新开始</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <!-- 阶段进度条 -->
+    <div class="stage-bar" id="stageBar"></div>
+
+    <!-- 输入区 -->
+    <div class="input-area" id="inputArea">
+      <textarea id="caseInput" placeholder="请在此输入案情描述……
+
+例如：甲借给乙10万元，没有借条，只有微信转账记录和一段语音聊天记录，乙拒不归还。甲方主张借款关系成立，要求乙归还本金及利息。"></textarea>
+      <button class="btn-primary" id="btnClassify" onclick="doClassify()">🔍 分类案件</button>
+    </div>
+
+    <!-- 状态栏 -->
+    <div class="status-bar">
+      <div class="spinner" id="spinner"></div>
+      <span id="statusText">就绪，请填写配置和案情后点击"分类案件"</span>
+    </div>
+
+    <!-- 输出区 -->
+    <div class="output-area" id="output">
+      <div class="empty-state" id="emptyState">
+        <div>
+          <div style="font-size:48px;margin-bottom:12px;">⚖️</div>
+          <div>等待开始……</div>
+          <div style="font-size:13px;margin-top:4px;">填写左侧模型配置，输入案情描述，然后点击「分类案件」</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== 全局状态 ==========
+const STORAGE_KEY = 'adversarial-legal-config';
+
+const appState = {
+  case_description: '',
+  category: '',
+  plaintiff_label: '原告方',
+  defendant_label: '被告方',
+  model1_config: { base_url: '', api_key: '', model_name: '' },
+  model2_config: { base_url: '', api_key: '', model_name: '' },
+  plaintiff_questions: [],
+  plaintiff_answers: '',
+  defense_questions: [],
+  defense_answers: '',
+  debate_data: { rounds: [] },
+  user_side: '',
+  current_stage: 'input',
+};
+
+// ========== 配置持久化 ==========
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const c = JSON.parse(saved);
+      document.getElementById('m1-url').value = c.m1_url || '';
+      document.getElementById('m1-key').value = c.m1_key || '';
+      document.getElementById('m1-name').value = c.m1_name || '';
+      document.getElementById('m2-url').value = c.m2_url || '';
+      document.getElementById('m2-key').value = c.m2_key || '';
+      document.getElementById('m2-name').value = c.m2_name || '';
+    }
+  } catch(e) {}
+}
+
+function readConfig() {
+  return {
+    model1: { base_url: document.getElementById('m1-url').value.trim(), api_key: document.getElementById('m1-key').value.trim(), model_name: document.getElementById('m1-name').value.trim() },
+    model2: { base_url: document.getElementById('m2-url').value.trim(), api_key: document.getElementById('m2-key').value.trim(), model_name: document.getElementById('m2-name').value.trim() },
+  };
+}
+
+function saveConfig() {
+  const c = {
+    m1_url: document.getElementById('m1-url').value, m1_key: document.getElementById('m1-key').value, m1_name: document.getElementById('m1-name').value,
+    m2_url: document.getElementById('m2-url').value, m2_key: document.getElementById('m2-key').value, m2_name: document.getElementById('m2-name').value,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
+  setStatus('配置已保存');
+}
+
+function resetConfig() {
+  if (confirm('确定要清除所有配置？')) {
+    localStorage.removeItem(STORAGE_KEY);
+    ['m1-url','m1-key','m1-name','m2-url','m2-key','m2-name'].forEach(id => document.getElementById(id).value = '');
+    setStatus('配置已清除');
+  }
+}
+
+function validateConfig() {
+  const cfg = readConfig();
+  if (!cfg.model1.base_url || !cfg.model1.api_key || !cfg.model1.model_name) return false;
+  if (!cfg.model2.base_url || !cfg.model2.api_key || !cfg.model2.model_name) return false;
+  appState.model1_config = cfg.model1;
+  appState.model2_config = cfg.model2;
+  return true;
+}
+
+// ========== UI 工具 ==========
+function setStatus(msg) { document.getElementById('statusText').textContent = msg; }
+
+function showSpinner(show) {
+  const s = document.getElementById('spinner');
+  if (show) s.classList.add('active'); else s.classList.remove('active');
+}
+
+function removeEmptyState() {
+  const e = document.getElementById('emptyState');
+  if (e) e.remove();
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
+}
+
+// ========== 阶段管理 ==========
+const STAGES = ['input', 'classified', 'side_select', 'questions', 'debating', 'summary'];
+const STAGE_LABELS = ['输入案情', '案件分类', '选择立场', '双方追问', '自动辩论', '最终建议'];
+
+function setStage(stage) {
+  appState.current_stage = stage;
+  const bar = document.getElementById('stageBar');
+  let html = '';
+  for (let i = 0; i < STAGES.length; i++) {
+    const s = STAGES[i];
+    let cls = '';
+    const idx = STAGES.indexOf(stage);
+    if (i < idx) cls = 'completed';
+    else if (i === idx) cls = 'active';
+    html += `<span class="stage-step ${cls}">${STAGE_LABELS[i]}</span>`;
+  }
+  bar.innerHTML = html;
+
+  const inputArea = document.getElementById('inputArea');
+  if (stage === 'input' || stage === 'summary') {
+    inputArea.style.display = 'flex';
+  } else {
+    inputArea.style.display = 'none';
+  }
+
+  if (stage === 'input') {
+    inputArea.innerHTML = `
+      <textarea id="caseInput" placeholder="请在此输入案情描述……
+
+例如：甲借给乙10万元，没有借条，只有微信转账记录和一段语音聊天记录，乙拒不归还。甲方主张借款关系成立，要求乙归还本金及利息。">${escapeHtml(appState.case_description)}</textarea>
+      <button class="btn-primary" id="btnClassify" onclick="doClassify()">🔍 分类案件</button>
+    `;
+  } else if (stage === 'summary') {
+    inputArea.innerHTML = `<button class="btn-primary" onclick="resetApp()">↻ 重新开始</button>`;
+  }
+}
+
+// ========== 1. 案件分类 ==========
+async function doClassify() {
+  if (!validateConfig()) { alert('请填写完整的模型配置'); return; }
+  const caseDesc = document.getElementById('caseInput').value.trim();
+  if (!caseDesc) { alert('请输入案情描述'); return; }
+  appState.case_description = caseDesc;
+  saveConfig();
+
+  setStage('classified');
+  setStatus('正在分类案件……');
+  showSpinner(true);
+
+  try {
+    const resp = await fetch('/api/classify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ case_description: caseDesc, model: appState.model1_config }),
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+    appState.category = data.category;
+    appState.plaintiff_label = data.plaintiff_label || '原告方';
+    appState.defendant_label = data.defendant_label || '被告方';
+    showClassification(data.category, data.plaintiff_label, data.defendant_label);
+    setStatus(`案件类型：${data.category} | 原告：${appState.plaintiff_label} | 被告：${appState.defendant_label}`);
+  } catch (e) {
+    alert('分类失败：' + e.message);
+    setStage('input');
+  }
+  showSpinner(false);
+}
+
+function showClassification(category, plaintiffLabel, defendantLabel) {
+  removeEmptyState();
+  const output = document.getElementById('output');
+  const badge = document.createElement('div');
+  badge.className = 'category-badge';
+  badge.id = 'categoryBadge';
+  badge.innerHTML = `🔍 <strong>案件类型：</strong>${escapeHtml(category)} &nbsp;|&nbsp; 🔵 原告方：${escapeHtml(plaintiffLabel)} &nbsp;|&nbsp; 🔴 被告方：${escapeHtml(defendantLabel)}`;
+  output.appendChild(badge);
+
+  setStage('side_select');
+  const sideCard = document.createElement('div');
+  sideCard.className = 'side-select-card';
+  sideCard.id = 'sideSelectCardInitial';
+  sideCard.innerHTML = `
+    <div class="side-select-title">📌 请选择你的身份</div>
+    <div class="side-select-desc">你在这个案件中是哪一方？选择后，你的律师会友好地帮你梳理案情，对方律师则会对你进行交叉盘问。</div>
+    <div class="side-buttons">
+      <button class="side-btn plaintiff-btn" onclick="selectUserSide('plaintiff')">
+        <span class="side-icon">🔵</span> 我是<span style="font-weight:700;font-size:16px;">${escapeHtml(plaintiffLabel)}</span>（原告方）
+      </button>
+      <button class="side-btn defense-btn" onclick="selectUserSide('defense')">
+        <span class="side-icon">🔴</span> 我是<span style="font-weight:700;font-size:16px;">${escapeHtml(defendantLabel)}</span>（被告方）
+      </button>
+    </div>
+  `;
+  output.appendChild(sideCard);
+}
+
+function selectUserSide(side) {
+  appState.user_side = side;
+  const card = document.getElementById('sideSelectCardInitial');
+  if (card) card.remove();
+  setStatus(`你选择了：${side === 'plaintiff' ? appState.plaintiff_label + '（原告方）' : appState.defendant_label + '（被告方）'}`);
+  startBothQuestions();
+}
+
+// ========== 2. 双方追问（合并） ==========
+async function startBothQuestions() {
+  setStage('questions');
+  setStatus('正在生成双方追问……');
+  showSpinner(true);
+
+  const isPlaintiff = appState.user_side === 'plaintiff';
+  const clientLabel = isPlaintiff ? appState.plaintiff_label : appState.defendant_label;
+  const clientRole = isPlaintiff ? '原告方' : '被告方';
+  const opponentLabel = isPlaintiff ? appState.defendant_label : appState.plaintiff_label;
+  const opponentRole = isPlaintiff ? '被告方' : '原告方';
+  const friendlyModel = isPlaintiff ? appState.model1_config : appState.model2_config;
+  const adversarialModel = isPlaintiff ? appState.model2_config : appState.model1_config;
+
+  const commonBody = {
+    case_description: appState.case_description,
+    category: appState.category,
+    client_label: clientLabel,
+    client_role: clientRole,
+    opponent_label: opponentLabel,
+    opponent_role: opponentRole,
+  };
+
+  try {
+    const [fResp, aResp] = await Promise.all([
+      fetch('/api/generate-questions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...commonBody, is_friendly: true, model: friendlyModel }),
+      }),
+      fetch('/api/generate-questions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...commonBody, is_friendly: false, model: adversarialModel }),
+      }),
+    ]);
+    if (!fResp.ok) throw new Error('友好追问：' + await fResp.text());
+    if (!aResp.ok) throw new Error('对抗追问：' + await aResp.text());
+    const fData = await fResp.json();
+    const aData = await aResp.json();
+
+    if (isPlaintiff) {
+      appState.plaintiff_questions = fData.questions || [];
+      appState.defense_questions = aData.questions || [];
+    } else {
+      appState.defense_questions = fData.questions || [];
+      appState.plaintiff_questions = aData.questions || [];
+    }
+    showCombinedQuestionsCard();
+    setStatus('请回答双方律师的追问');
+  } catch (e) {
+    alert('生成追问失败：' + e.message);
+  }
+  showSpinner(false);
+}
+
+function showCombinedQuestionsCard() {
+  removeEmptyState();
+  const oldCard = document.querySelector('.questions-card');
+  if (oldCard) oldCard.remove();
+  const oldActions = document.getElementById('classifiedActions');
+  if (oldActions) oldActions.remove();
+
+  const output = document.getElementById('output');
+  const card = document.createElement('div');
+  card.className = 'questions-card combined';
+
+  const isP = appState.user_side === 'plaintiff';
+  const friendlyLabel = isP ? appState.plaintiff_label : appState.defendant_label;
+  const adversarialLabel = isP ? appState.defendant_label : appState.plaintiff_label;
+  const friendlyQs = isP ? appState.plaintiff_questions : appState.defense_questions;
+  const adversarialQs = isP ? appState.defense_questions : appState.plaintiff_questions;
+
+  let html = '';
+
+  html += `<div class="questions-header" style="color:var(--summary);background:var(--summary-bg);">🤝 ${escapeHtml(friendlyLabel)}的律师 — 向你了解情况</div>`;
+  html += `<div class="questions-body" style="max-height:260px;">`;
+  friendlyQs.forEach((q, i) => {
+    html += `<div class="question-item"><div class="question-text">${escapeHtml(q)}</div><textarea class="answer-input" data-side="friendly" data-q="${i}" placeholder="请在此输入您的回答……"></textarea></div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="questions-header" style="color:var(--defense);background:var(--defense-bg);">⚔️ ${escapeHtml(adversarialLabel)}的律师 — 对方的交叉盘问</div>`;
+  html += `<div class="questions-body" style="max-height:260px;">`;
+  adversarialQs.forEach((q, i) => {
+    html += `<div class="question-item"><div class="question-text">${escapeHtml(q)}</div><textarea class="answer-input" data-side="adversarial" data-q="${i}" placeholder="请在此输入您的回答……"></textarea></div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="questions-footer"><button class="btn-submit" id="btnSubmitCombined" onclick="submitCombinedAnswers()">提交全部回答</button></div>`;
+  card.innerHTML = html;
+  output.appendChild(card);
+}
+
+function submitCombinedAnswers() {
+  const isP = appState.user_side === 'plaintiff';
+  const friendlyQs = isP ? appState.plaintiff_questions : appState.defense_questions;
+  const adversarialQs = isP ? appState.defense_questions : appState.plaintiff_questions;
+
+  const fInputs = document.querySelectorAll('.answer-input[data-side="friendly"]');
+  const fParts = [];
+  fInputs.forEach((inp, i) => { const v = inp.value.trim(); if (v) fParts.push(`追问${i+1}：${friendlyQs[i]}\n回答：${v}`); });
+
+  const aInputs = document.querySelectorAll('.answer-input[data-side="adversarial"]');
+  const aParts = [];
+  aInputs.forEach((inp, i) => { const v = inp.value.trim(); if (v) aParts.push(`追问${i+1}：${adversarialQs[i]}\n回答：${v}`); });
+
+  if (fParts.length === 0 && aParts.length === 0) { alert('请至少回答一个问题'); return; }
+
+  if (isP) {
+    appState.plaintiff_answers = fParts.join('\n\n');
+    appState.defense_answers = aParts.join('\n\n');
+  } else {
+    appState.defense_answers = fParts.join('\n\n');
+    appState.plaintiff_answers = aParts.join('\n\n');
+  }
+  document.getElementById('btnSubmitCombined').disabled = true;
+  startDebate();
+}
+
+// ========== 4. 自动辩论 — Tab 导航系统 ==========
+let abortController = null;
+let debateFinished = false;
+let activeTabId = null;
+
+// 10 个按钮，分两排：第一排 7 个，第二排 3 个
+const TAB_ROWS = [
+  [
+    { id: 'plaintiff_argument-1', icon: '🔵', label: '第1轮·原告论证', cls: 'plaintiff' },
+    { id: 'defense_argument-1', icon: '🔴', label: '第1轮·被告论证', cls: 'defense' },
+    { id: 'judge_verdict-1',    icon: '⚖️', label: '第1轮·法官裁决', cls: 'judge' },
+    { id: 'plaintiff_argument-2', icon: '🔵', label: '第2轮·原告论证', cls: 'plaintiff' },
+    { id: 'defense_argument-2', icon: '🔴', label: '第2轮·被告论证', cls: 'defense' },
+    { id: 'judge_verdict-2',    icon: '⚖️', label: '第2轮·法官裁决', cls: 'judge' },
+    { id: 'plaintiff_argument-3', icon: '🔵', label: '第3轮·原告论证', cls: 'plaintiff' },
+  ],
+  [
+    { id: 'defense_argument-3', icon: '🔴', label: '第3轮·被告论证', cls: 'defense' },
+    { id: 'judge_verdict-3',    icon: '⚖️', label: '第3轮·法官裁决', cls: 'judge' },
+    { id: 'summary',            icon: '📊', label: '最终综合评估与建议', cls: 'summary' },
+  ],
+];
+
+const PANEL_HEADERS = {
+  'plaintiff_argument': { icon: '🔵', label: '原告方论证', cls: 'ph-plaintiff' },
+  'defense_argument': { icon: '🔴', label: '被告方论证', cls: 'ph-defense' },
+  'judge_verdict':    { icon: '⚖️', label: '法官裁决', cls: 'ph-judge' },
+  'summary':          { icon: '📊', label: '最终综合评估与建议', cls: 'ph-summary' },
+};
+
+function initDebateTabs() {
+  const output = document.getElementById('output');
+  output.innerHTML = '';
+
+  const container = document.createElement('div');
+  container.id = 'tabContainer';
+
+  // Build tab bar
+  const tabBar = document.createElement('div');
+  tabBar.className = 'tab-bar';
+
+  TAB_ROWS.forEach(row => {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'tab-row';
+    row.forEach(tab => {
+      const btn = document.createElement('button');
+      btn.className = `tab-btn ${tab.cls === 'summary' ? 'summary-btn' : tab.cls} disabled`;
+      btn.id = `tab-btn-${tab.id}`;
+      btn.textContent = `${tab.icon} ${tab.label}`;
+      btn.onclick = () => switchTab(tab.id);
+      rowDiv.appendChild(btn);
+    });
+    tabBar.appendChild(rowDiv);
+  });
+  container.appendChild(tabBar);
+
+  // Build content area
+  const contentArea = document.createElement('div');
+  contentArea.className = 'tab-content-area';
+
+  TAB_ROWS.flat().forEach(tab => {
+    const panel = document.createElement('div');
+    panel.className = `tab-panel ${tab.cls === 'summary' ? 'summary-panel' : tab.cls + '-panel'}`;
+    panel.id = `tab-panel-${tab.id}`;
+    panel.innerHTML = `<div class="panel-placeholder">等待生成……</div>`;
+    contentArea.appendChild(panel);
+  });
+  container.appendChild(contentArea);
+
+  output.appendChild(container);
+}
+
+function switchTab(tabId) {
+  const btn = document.getElementById(`tab-btn-${tabId}`);
+  if (!btn || btn.classList.contains('disabled')) return;
+
+  document.querySelectorAll('.tab-btn.active').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel.active').forEach(p => p.classList.remove('active'));
+
+  btn.classList.add('active');
+  const panel = document.getElementById(`tab-panel-${tabId}`);
+  if (panel) panel.classList.add('active');
+
+  activeTabId = tabId;
+}
+
+function setTabStreaming(tabId) {
+  document.querySelectorAll('.tab-btn.streaming').forEach(b => {
+    b.classList.remove('streaming');
+    b.classList.add('done');
+  });
+  const btn = document.getElementById(`tab-btn-${tabId}`);
+  if (btn) {
+    btn.classList.remove('disabled');
+    btn.classList.add('streaming');
+  }
+}
+
+function updateTabContent(tabId, content, extraMeta) {
+  const panel = document.getElementById(`tab-panel-${tabId}`);
+  if (!panel) return;
+
+  const dashIdx = tabId.lastIndexOf('-');
+  const typeKey = tabId === 'summary' ? 'summary' : tabId.substring(0, dashIdx);
+  const round = tabId === 'summary' ? 0 : parseInt(tabId.substring(dashIdx + 1));
+
+  const hdr = PANEL_HEADERS[typeKey] || { icon: '📄', label: tabId, cls: '' };
+  const roundLabel = round > 0 ? `第${round}轮 · ` : '';
+
+  let html = `<div class="panel-header ${hdr.cls}">${hdr.icon} ${roundLabel}${hdr.label}</div>`;
+  html += `<div class="panel-content">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
+  if (extraMeta) {
+    html += `<div class="panel-meta">${extraMeta}</div>`;
+  }
+  panel.innerHTML = html;
+}
+
+function startDebate() {
+  setStage('debating');
+  setStatus('正在准备辩论……');
+  showSpinner(true);
+
+  abortController = new AbortController();
+  appState.debate_data = { rounds: [] };
+  debateFinished = false;
+  activeTabId = null;
+
+  initDebateTabs();
+
+  const body = JSON.stringify({
+    case_description: appState.case_description,
+    category: appState.category,
+    plaintiff_answers: appState.plaintiff_answers,
+    defense_answers: appState.defense_answers,
+    model1_base_url: appState.model1_config.base_url,
+    model1_api_key: appState.model1_config.api_key,
+    model1_model_name: appState.model1_config.model_name,
+    model2_base_url: appState.model2_config.base_url,
+    model2_api_key: appState.model2_config.api_key,
+    model2_model_name: appState.model2_config.model_name,
+  });
+
+  fetch('/debate/start', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body, signal: abortController.signal,
+  }).then(response => {
+    if (!response.ok) return response.text().then(t => { throw new Error(t || 'HTTP ' + response.status); });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    function processLines() {
+      reader.read().then(({ done, value }) => {
+        if (done) { finishDebate(); return; }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        let currentEvent = 'message', currentData = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) { currentEvent = line.slice(7).trim(); }
+          else if (line.startsWith('data: ')) { currentData = line.slice(6); }
+          else if (line === '' && currentData) {
+            handleSSEEvent(currentEvent, currentData);
+            currentEvent = 'message'; currentData = '';
+          }
+        }
+        processLines();
+      }).catch(err => {
+        if (err.name === 'AbortError') return;
+        showSpinner(false);
+        setStatus('连接错误：' + err.message);
+      });
+    }
+    processLines();
+  }).catch(err => {
+    if (err.name === 'AbortError') return;
+    showSpinner(false);
+    setStatus('请求失败：' + err.message);
+  });
+}
+
+function finishDebate() {
+  if (debateFinished) return;
+  debateFinished = true;
+  showSpinner(false);
+  abortController = null;
+
+  document.querySelectorAll('.tab-btn.streaming').forEach(b => {
+    b.classList.remove('streaming');
+    b.classList.add('done');
+  });
+
+  setStatus('正在生成总结……');
+  requestSummary();
+}
+
+async function requestSummary() {
+  showSpinner(true);
+  try {
+    const resp = await fetch('/api/summary', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        case_description: appState.case_description,
+        category: appState.category,
+        plaintiff_answers: appState.plaintiff_answers,
+        defense_answers: appState.defense_answers,
+        user_side: appState.user_side,
+        debate_records: appState.debate_data.rounds,
+        model1: appState.model1_config,
+        model2: appState.model2_config,
+      }),
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+    showFinalSummary(data.summary, data.summary_model);
+    setStatus('最终建议已生成');
+  } catch (e) {
+    alert('生成总结失败：' + e.message);
+  }
+  showSpinner(false);
+}
+
+// ========== SSE 事件处理 ==========
+function handleSSEEvent(eventType, dataStr) {
+  let data;
+  try { data = JSON.parse(dataStr); } catch(e) { return; }
+
+  if (eventType === 'error') {
+    showError(data.message || '未知错误');
+    return;
+  }
+  if (eventType === 'done') { finishDebate(); return; }
+
+  const round = data.round || 0;
+  const content = data.content || '';
+  const extra = data.judge_model || '';
+
+  switch (eventType) {
+    case 'case_classified':
+      break;
+    case 'round_start':
+      updateStageStatus(`第 ${round} 轮辩论中……`);
+      break;
+    case 'plaintiff_argument':
+      {
+        const tabId = `plaintiff_argument-${round}`;
+        setTabStreaming(tabId);
+        updateTabContent(tabId, content);
+        switchTab(tabId);
+        collectDebateData(round, 'plaintiff_argument', content);
+      }
+      break;
+    case 'defense_argument':
+      {
+        const tabId = `defense_argument-${round}`;
+        setTabStreaming(tabId);
+        updateTabContent(tabId, content);
+        switchTab(tabId);
+        collectDebateData(round, 'defense_argument', content);
+      }
+      break;
+    case 'judge_verdict':
+      {
+        const tabId = `judge_verdict-${round}`;
+        setTabStreaming(tabId);
+        updateTabContent(tabId, content, `🤖 法官模型：${extra}`);
+        switchTab(tabId);
+        collectDebateData(round, 'judge_verdict', content);
+        collectDebateData(round, 'judge_model', extra);
+      }
+      break;
+    case 'plaintiff_questions':
+    case 'defense_questions':
+      break;
+  }
+}
+
+function collectDebateData(round, field, content) {
+  let rd = appState.debate_data.rounds.find(r => r.round === round);
+  if (!rd) { rd = { round }; appState.debate_data.rounds.push(rd); }
+  rd[field] = content;
+}
+
+function updateStageStatus(msg) { setStatus(msg); }
+
+function showFinalSummary(content, modelLabel) {
+  const tabId = 'summary';
+  const sideLabel = appState.user_side === 'plaintiff' ? appState.plaintiff_label : appState.defendant_label;
+
+  const panel = document.getElementById(`tab-panel-${tabId}`);
+  if (panel) {
+    const hdr = PANEL_HEADERS['summary'];
+    let html = `<div class="panel-header ${hdr.cls}">${hdr.icon} ${sideLabel}方视角 — ${hdr.label}</div>`;
+    html += `<div class="panel-content">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
+    html += `<div class="panel-meta">🤖 总结模型：${escapeHtml(modelLabel)}</div>`;
+    panel.innerHTML = html;
+  }
+
+  // Enable and activate the summary tab
+  const btn = document.getElementById(`tab-btn-${tabId}`);
+  if (btn) { btn.classList.remove('disabled'); btn.classList.add('done'); }
+
+  document.querySelectorAll('.tab-btn.streaming').forEach(b => {
+    b.classList.remove('streaming');
+    b.classList.add('done');
+  });
+
+  switchTab(tabId);
+  setStage('summary');
+}
+
+function showError(message) {
+  const output = document.getElementById('output');
+  const err = document.createElement('div');
+  err.style.cssText = 'background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;color:#991b1b;margin:16px;';
+  err.innerHTML = `<strong>❌ 错误</strong><br>${escapeHtml(message)}`;
+  output.appendChild(err);
+  showSpinner(false);
+  setStatus('发生错误');
+}
+
+// ========== 重置 ==========
+function resetApp() {
+  if (abortController) { abortController.abort(); abortController = null; }
+  debateFinished = false;
+  showSpinner(false);
+  activeTabId = null;
+
+  appState.case_description = '';
+  appState.category = '';
+  appState.plaintiff_questions = [];
+  appState.plaintiff_answers = '';
+  appState.defense_questions = [];
+  appState.defense_answers = '';
+  appState.debate_data = { rounds: [] };
+  appState.user_side = '';
+
+  setStage('input');
+  setStatus('就绪，请填写配置和案情后点击"分类案件"');
+  document.getElementById('output').innerHTML = '<div class="empty-state" id="emptyState"><div><div style="font-size:48px;margin-bottom:12px;">⚖️</div><div>等待开始……</div><div style="font-size:13px;margin-top:4px;">填写左侧模型配置，输入案情描述，然后点击「分类案件」</div></div></div>';
+}
+
+// ========== 初始化 ==========
+loadConfig();
+setStage('input');
+</script>
+</body>
+</html>
